@@ -1,0 +1,81 @@
+trigger:
+  branches:
+    include:
+    - refs/heads/main
+    - refs/heads/release/*
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+- name: Service.Name.KebabCase
+  value: "example-multitenantdata"
+  
+- name: Acr.Repository.Connect
+  value: "codebuilddeploy-acr"
+
+- template: variables-build.yml
+
+- template: variables-versioning.yml
+  parameters:
+    buildTypeRelease: ${{ variables['build.type.release'] }}
+    majorVersion: 1
+    minorVersion: 0
+
+name: $[variables['Build.Number']]
+
+stages:
+- stage: Build
+  jobs:
+  - job: Build
+    steps:
+    - checkout: self
+      fetchDepth: 0
+      persistCredentials: true
+
+    - bash: |
+        echo "build.type.release = $(build.type.release)"
+        echo "SourceVersion = $(Build.SourceVersion)"
+        echo "SourceVersion.Short = $(Build.SourceVersion.Short)"
+        echo "Build Number = $(Build.Number)"
+        echo "Version Assembly = $(Version.Assembly)"
+        echo "Version File = $(Version.File)"
+        echo "Version Informational = $(Version.Informational)"
+        echo "Version Major = $(Version.Major)"
+        echo "Version Minor = $(Version.Minor)"
+        echo "Version Patch = $(Version.Patch)"
+      displayName: Output Version
+
+    - task: Docker@2
+      displayName: Build App Image
+      inputs:
+        command: build
+        containerRegistry: $(Acr.Repository.Connect)
+        repository: "${{ variables['Service.Name.KebabCase'] }}"
+        tags: |
+          latest
+          $(Build.Number)
+        Dockerfile: '$(Build.SourcesDirectory)/src/Example.MultiTenantData.Api/Dockerfile'
+        buildContext: .
+        arguments: '--target final --build-arg --build-arg VERSION=$(Build.Number) --build-arg ASSEMBLY_VERSION=$(Version.Assembly) --build-arg FILE_VERSION=$(Version.File) --build-arg INFORMATIONAL_VERSION=$(Version.Informational) --build-arg PACKAGE_VERSION=$(Build.Number)'
+   
+   - task: Docker@2
+      displayName: Build Data Image
+      inputs:
+        command: build
+        containerRegistry: $(Acr.Repository.Connect)
+        repository: "${{ variables['Service.Name.KebabCase'] }}-data"
+        tags: |
+          latest
+          $(Build.Number)
+        Dockerfile: '$(Build.SourcesDirectory)/src/Example.MultiTenantData.Api/Dockerfile'
+        buildContext: .
+        arguments: '--target finalMigration --build-arg VERSION=$(Build.Number) --build-arg ASSEMBLY_VERSION=$(Version.Assembly) --build-arg FILE_VERSION=$(Version.File) --build-arg INFORMATIONAL_VERSION=$(Version.Informational) --build-arg PACKAGE_VERSION=$(Build.Number)'
+
+    - script: |
+        git tag $(Build.Number)
+        git push origin $(Build.Number)
+      workingDirectory: $(Build.SourcesDirectory)
+      condition: and(or(eq(variables.isMain, 'True'), eq(variables.isRelease, 'True')), succeeded())
+      displayName: Tag Version in Git
+        

@@ -396,3 +396,10 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+.idea/*
+
+##
+## Local Env Vars
+##
+/.env
+/local_variables.env

@@ -1,0 +1,7 @@
+@MultiTenantData.Api_HostAddress = https://localhost:5011
+@TenantId = tenanta
+
+GET {{MultiTenantData.Api_HostAddress}}/api/Example/GetAllWithSpecifiedTenant?tenant={{TenantId}}
+Accept: application/json
+
+###

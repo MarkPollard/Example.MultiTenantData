@@ -1,0 +1,41 @@
+name: example-multitenantdata
+
+networks:
+  development:
+    name: codebuilddeploy
+    driver: bridge
+
+services:
+  multitenantdata-data:
+    image: codebuilddeploy.azurecr.io/example-multitenantdata-data:latest
+    build:
+      context: .
+      dockerfile: ./src/Example.MultiTenantData.Api/Dockerfile
+      target: finalMigration
+    env_file: .env
+    networks:
+      - development
+    container_name: example-multitenantdata-data
+    hostname: example-multitenantdata-data
+    
+  multitenantdata:
+    image: codebuilddeploy.azurecr.io/example-multitenantdata:latest
+    build:
+      context: .
+      dockerfile: ./src/Example.MultiTenantData.Api/Dockerfile
+      target: final
+    env_file: .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: https://+:8081;http://+:8080
+      ASPNETCORE_Kestrel__Certificates__Default__Password: $CERT_PASSWORD
+      ASPNETCORE_Kestrel__Certificates__Default__Path: /https/code-build-deploy.pfx
+    volumes:
+      - ~/.aspnet/https:/https:ro
+    ports:
+      - 5010:8080
+      - 5011:8081
+    networks:
+      - development
+    container_name: example-multitenantdata
+    hostname: example-multitenantdata
